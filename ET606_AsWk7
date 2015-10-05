@@ -1,0 +1,67 @@
+---
+title: "Untitled"
+author: "Edwige"
+date: "October 4, 2015"
+output: html_document
+---
+
+##IS 607 – Week 6 Assignment
+
+Your task is to:
+(1) Create a .CSV file (or optionally, a MySQL database!) that includes all of the information above.
+You’re encouraged to use a “wide” structure similar to how the information appears above, so that you can practice tidying and transformations as described below.
+
+```{r}
+u<-c("","","Los Angeles","Phoenix","San Diego","San Francisco","Seattle")
+t<-c("Alaska","on time","497","221","212","503","1841")
+i<-c("","delayed","62","12","20","102","305")
+d<-c("AM WEST","on time","694","4840","383","320","201")
+y<-c("","delayed","117","415","65","129","61")
+
+library(dplyr)
+library(tidyr)
+untidy<-data.frame(rbind(u, t,i, d,y),row.names=NULL ,stringsAsFactors=FALSE)
+print(untidy)
+# Write CSV in R
+write.table(untidy, file = "asignment6_untidy.csv", row.names=FALSE, col.names=FALSE, sep=",") 
+
+```
+
+(2) Read the information from your .CSV file into R, and use tidyr and dplyr as needed to tidy and transform your data.
+```{r}
+# Read CSV into R
+MyData <- read.csv('asignment6_untidy.csv',stringsAsFactors=FALSE)
+
+print(MyData) #It is showing that Column headers are values, not variable names. Also, ariables are stored in both rows and columns.
+#We will assign the column's names for our preprocessing
+colnames(MyData)[1] <- "Airline"
+colnames(MyData)[2] <- "Status"
+
+#We are assigning the values Alask and AM West to the two empty columns 
+MyData[2,1]<-'Alaska'
+MyData[4,1]<-'AM WEST'
+MyData
+```
+###In tidy data:
+- observations are in rows
+- variables are in columns
+
+In order to have a tidy dataset, we are going to transform city into one variable(column), then we are going to transform delayed and on time into two variables.
+```{r}
+library(tidyr)
+library(dplyr)
+MyData<-MyData %>% gather(City, Occurence, 3:7) 
+head(MyData)
+MyData <- spread(MyData, Status, Occurence)
+head(MyData)
+#We are now going to remove the extra character in the city names
+MyData$City<-gsub("\\."," ",MyData$City)
+```
+(3) Perform analysis to compare the arrival delays for the two airlines.
+```{r}
+
+MyData %>% 
+  group_by(City, Airline) %>% 
+  summarise(delay_percent = 100 * delayed/(delayed+`on time`)) %>% 
+  arrange(City, Airline)
+```
