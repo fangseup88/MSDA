@@ -1,0 +1,131 @@
+---
+title: "Project 2"
+author: "Edwige"
+date: "October 11, 2015"
+output: html_document
+---
+
+```{r}
+#Loading all the libraries
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+# Read CSV into R
+data1<- as.data.frame(read.csv('trade_data.csv',stringsAsFactors=FALSE))
+data2<- read.csv('revenue_data.csv',stringsAsFactors=FALSE)
+data3<- read.csv('poll_data.csv',stringsAsFactors=FALSE)
+```
+
+##Cleansing steps for the trade dataset from Jason Joseph
+
+```{r}
+head(data1)
+#The data contains some empty rows, we will first remove those empty lines
+data12<-filter(data1, X2013!="")
+head(data12)
+#We need to fill some empty observation values in the first column
+i<-seq(3,length(data12)+1,2)
+j<-i-1
+data12[i,1]<-data12[j,1]
+data13<-data12
+head(data13)
+#The following step aims at changing the column names, we use the two the existing column names and the first line in the dataset
+cname<-names(data13)
+cname
+i<-seq(4,ncol(data13),2)
+j<-i-1
+cname[i]<-paste(cname[j],data13[1,i])
+cname
+i<-seq(3,ncol(data13),2)
+j<-i-1
+cname[i]<-paste(cname[i],data13[1,i])
+
+#We can now remove the first line in the dataset
+data13<-filter(data13, X!="")
+colnames(data13)<-cname
+
+head(data13)
+data13<-gather(data13, "Type", "Revenue", 3:ncol(data13))
+head(data13)
+
+data13<-data13 %>% separate(Type, c("Year", "Trade"), sep = " ", remove=TRUE)
+head(data13)
+#We are then going to remove all the X in the year column
+data13$Year<-gsub("X","",data13$Year)
+data13$Revenue<-gsub("\\,","",data13$Revenue)
+#We change the second column's name
+colnames(data13)[2]<-"Type"
+data13$Type<-gsub("\\s+","",data13$Type) 
+data13<-spread(data13, Trade, Revenue)
+head(data13)
+#We divide the dataset in two for analysis. One dataset contains the imports and the other dataset contains the exports 
+import_data<-select(data13, Period,Type,Year,Imports)
+head(import_data)
+export_data<-select(data13,Period:Exports)
+head(export_data)
+```
+
+##The analysis
+```{r}
+#1-Calculate the average goods export for each month over the three-year span
+exp_mean<-export_data %>% filter(Type == "Goods" ) %>% group_by(Period) %>% summarise(Mean_Exports = mean(as.numeric((Exports))))
+exp_mean
+#2- Calculate the average goods import for each month over the three-year span
+imp_mean<-import_data %>% filter(Type == "Goods" ) %>% group_by(Period) %>% summarise(Mean_Imports = mean(as.numeric((Imports))))
+imp_mean
+#3- Calculate the average services export for each month over the three-year span
+exp_mean<-export_data %>% filter(Type == "Services" ) %>% group_by(Period) %>% summarise(Mean_Exports = mean(as.numeric((Exports))))
+exp_mean
+#4- Calculate the average services import for each month over the three-year span
+imp_mean<-import_data %>% filter(Type == "Services" ) %>% group_by(Period) %>% summarise(Mean_Imports = mean(as.numeric((Imports))))
+imp_mean
+```
+
+##Cleansing for the second dataset suggested by Nabila Hossain
+```{r}
+head(data2)
+#We are using gather to create a Revenue column
+data21<-gather(data2, "Company", "Revenue", 2:ncol(data2))
+head(data21)
+#we arrange the revenues by year
+data22<-arrange(data21, X, Company, Revenue)
+head(data22)
+#We change the first column's name
+colnames(data22)[1]<-"Year"
+data22$Company<-gsub("\\s+","",data22$Company)
+```
+
+##Analysis
+```{r}
+yearly <- group_by(data22, Year)
+(per_year <- summarise(yearly, Total=sum(Revenue)))
+data23<-arrange(data22, Company, Year, Revenue)
+head(data23)
+#1- Total revenue by year and company 
+tran <- group_by(data23, Year,Company)
+(tran1 <- summarise(tran, Total=sum(Revenue)))
+
+#2- Average revenue by year and company
+tran <- group_by(data23, Year, Company)
+(tran1 <- summarise(tran, Avg_Revenue=mean(Revenue)))
+#3- Compare the revenue of any two or three companies
+(data24<-filter(data23, Company=="AOL"| Company == "Google"|Company=="Yahoo"))
+qplot(Year,Revenue, data=data24, color=Company)
+```
+
+##Cleansing for the third dataset suggested by myself
+
+```{r}
+head(data3)
+#We are creating a column called Score with gather
+data31<-gather(data3, "Candidate", "Score", 3:ncol(data3))
+head(data31)
+```
+##Analysis
+```{r}
+perf <- group_by(data31, Candidate)
+(perf1 <- summarise(perf, Avg_Points=round(mean(Score),2)))
+perf <- group_by(data31, Candidate, Poll)
+(perf1 <- summarise(perf, Avg_Points=round(mean(Score),2)))
+qplot(Score,Candidate, data=data31, color=Poll)
+```
