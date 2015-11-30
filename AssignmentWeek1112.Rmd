@@ -1,0 +1,122 @@
+---
+title: "Assignment for weeks 11/12"
+author: "Edwige"
+date: "November 28, 2015"
+output: html_document
+---
+
+For this assignment, we choose the Spamassassin dataset located at https://spamassassin.apache.org/publiccorpus. The files were downloaded and uncompressed on my local drive.
+```{r }
+library(tm)
+library(SnowballC)  
+library(stringr)
+library(RTextTools)
+
+preprocessing <- function(basedir, subdir)
+{
+fulldir<-paste0(basedir,subdir)
+#proceed to recursive reading
+alldir=DirSource(fulldir, encoding = "UTF-8", recursive=TRUE)
+
+#Creating the coupus from the directory files
+the_corpus <- Corpus(alldir, readerControl=list(reader=readPlain,language="en"))
+
+#Removing  punctuation
+the_corpus <- tm_map(the_corpus, removePunctuation) 
+
+#Removing numbers
+the_corpus <- tm_map(the_corpus, removeNumbers)
+
+the_corpus <- tm_map(the_corpus, stemDocument) 
+
+#Removing  words that usually have no analytic value
+the_corpus <- tm_map(the_corpus, removeWords, stopwords("english")) 
+
+#Removing  white spaces
+the_corpus <- tm_map(the_corpus, stripWhitespace) 
+
+the_corpus <- tm_map(the_corpus, content_transformer(tolower))
+the_corpus <- tm_map(the_corpus, PlainTextDocument)
+
+the_corpus
+}
+
+#Data locations
+basefolder="C:/data/is607/spam"
+
+folder4spam="/spam"
+folder4spam_2="/spam_2"
+folder4easy_ham="/easy_ham"
+folder4easy_ham_2="/easy_ham_2"
+folder4hard_hard_ham="/hard_ham"
+
+#Data preprocessing
+
+corpus4spam <- preprocessing(basefolder, folder4spam)
+corpus4spam_2 <- preprocessing(basefolder, folder4spam_2)
+corpus4easy_ham <- preprocessing(basefolder, folder4easy_ham)
+corpus4easy_ham_2 <- preprocessing(basefolder, folder4easy_ham_2)
+corpus4hard_ham <- preprocessing(basefolder, folder4hard_hard_ham)
+
+corpus4spam <- tm_map(corpus4spam, PlainTextDocument) 
+corpus4spam_2 <- tm_map(corpus4spam_2, PlainTextDocument) 
+corpus4easy_ham <- tm_map(corpus4easy_ham, PlainTextDocument) 
+corpus4easy_ham_2 <- tm_map(corpus4easy_ham_2, PlainTextDocument) 
+corpus4hard_ham <- tm_map(corpus4hard_ham, PlainTextDocument) 
+```
+```{r }
+#Adding meta labels
+meta(corpus4spam, tag = "type") <- "spam"
+meta(corpus4easy_ham, tag = "type") <- "ham"
+meta(corpus4hard_ham, tag = "type") <- "hardham"
+meta(corpus4spam_2, tag = "type") <- "spam"
+meta(corpus4easy_ham_2, tag = "type") <- "ham"
+
+#Combining the datasets
+training_set <-  c(corpus4spam, corpus4easy_ham, corpus4hard_ham, corpus4spam_2, corpus4easy_ham_2, recursive=T)
+
+#Randomizing the data
+training_set <- sample(training_set)
+
+#creating a document term matrix
+dtm_email <- DocumentTermMatrix(training_set)
+
+#  Removing sparse terms 
+dtms_email <- removeSparseTerms(dtm_email, 0.08) # This makes a matrix that is 8% empty space, maximum.   
+
+
+emailtype <- unlist(meta(training_set, "type")[,1])
+head(emailtype,5)
+
+set.seed(2000) #for reproductible results
+
+#Preparing the container
+n <- length(emailtype)
+container <- create_container(
+  dtms_email,
+  labels = emailtype,
+  trainSize =1:(0.8*n), 
+    testSize=(0.8*n+1):n, 
+    virgin=FALSE
+)
+```
+#Training models
+```{r }
+maxent_model <- train_model(container, "MAXENT")
+svm_model <- train_model(container, "SVM")
+glmnet_model <- train_model(container, "GLMNET")
+```
+
+#Classifying data
+```{r }
+svm_out <- classify_model(container, svm_model)
+maxent_out <- classify_model(container, maxent_model)
+glmnet_out <- classify_model(container, glmnet_model)
+```
+#The results
+```{r }
+head(svm_out)
+head(maxent_out)
+head(glmnet_out)
+```
+
